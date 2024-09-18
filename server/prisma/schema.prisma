@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(uuid()) // added UUID default
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+  username   String
+  avatar     String
+  texts      Text[]
+  players    Player[]
+}
+
+model Room {
+  id         String   @id @default(uuid())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+  ownerId    String
+  title      String
+  theme      String
+  maxPlayers Int
+  roundTime  Int
+  isFinished Boolean  @default(false)
+  code       String   @unique
+  players    Player[]
+  texts      Text[]
+}
+
+model Player {
+  id       String @id @default(uuid())
+  username String
+  avatar   String
+  roomId   String
+  userId   String
+  room     Room   @relation(fields: [roomId], references: [id])
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+}
+
+model Text {
+  id       String @id @default(uuid()) // added UUID default
+  playerId String
+  roomId   String
+  text     String
+
+  player User @relation(fields: [playerId], references: [id])
+  room   Room @relation(fields: [roomId], references: [id])
+
+  @@map("texts")
+}

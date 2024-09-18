@@ -1,0 +1,54 @@
+@import './tailwind.css';
+
+body {
+  font-family: 'Nunito', sans-serif;
+
+  font-weight: 400;
+
+  transition:
+    background-color 0.5s ease-in-out,
+    color 0.5s ease-in-out;
+}
+
+.anim_gradient--dark {
+  font-weight: 600;
+
+  padding: 10px 20px;
+
+  background: linear-gradient(270deg, #ff6f61, #ffcc70, #cc5500, #ffac1c);
+  background-size: 400% 400%;
+  color: #1c1c1c;
+
+  transition: all 0.5s ease;
+  animation: gradient 10s ease infinite;
+}
+
+.anim_gradient--light {
+  padding: 10px 20px;
+
+  background: linear-gradient(270deg, #dcd0ff, #b39ddb, #a99dff, #8c6bc6);
+  background-size: 400% 400%;
+  color: #fff;
+
+  transition: all 0.5s ease;
+  animation: gradient 7s ease infinite;
+}
+
+.anim_gradient--light:hover,
+.anim_gradient--dark:hover {
+  transform: scale(1.05);
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
