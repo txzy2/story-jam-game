@@ -47,6 +47,27 @@ export class MyGateway implements OnModuleInit {
         const users = Array.from(this.roomUsers.get(code) || []);
         socket.emit('updateUsers', users);
       });
+
+      socket.on('startGame', async (roomId: string) => {
+        const room = await this.prisma.room.findUnique({
+          where: {code: roomId},
+          include: {players: true}
+        });
+
+        if (!room) {
+          console.error(`Room with id ${roomId} not found`);
+          return;
+        }
+
+        // Обновляем состояние игры в базе данных
+        await this.prisma.room.update({
+          where: {code: roomId},
+          data: {status: 'Started'}
+        });
+
+        // Уведомляем всех в комнате о начале игры
+        this.server.to(roomId).emit('gameStarted', {roomId});
+      });
     });
   }
 

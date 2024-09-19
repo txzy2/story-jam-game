@@ -41,11 +41,13 @@ import {
 import {Progress} from '@/components/ui/progress';
 import {Button} from '@/components/ui/button';
 import {Label} from '@/components/ui/label';
+import {ToastAction} from '@/components/ui/toast';
 
 import {useUserStore} from '@/stores/storage';
 import {useRouter} from 'vue-router';
 import axios from 'axios';
 import {Socket} from 'socket.io-client';
+import {useToast} from './ui/toast';
 
 const userStorage = useUserStore();
 const colorMode = useColorMode();
@@ -63,6 +65,7 @@ const remainingCharacters = computed(() => roomName.value.length);
 
 const router = useRouter();
 const socket = inject('socket') as Socket;
+const {toast} = useToast();
 
 const updateProgress = () => {
   let filledFields = 0;
@@ -110,20 +113,41 @@ const submitFormJoin = async (e: any) => {
   e.preventDefault();
 
   if (connect.value) {
-    socket.emit('joinRoom', connect.value); // Отправляем код комнаты на сервер
+    try {
+      const request = await axios.post('http://localhost:4200/api/room/join', {
+        code: connect.value,
+        player: {
+          id: userStorage.getUser.id,
+          username: userStorage.getUser.username,
+          avatar: userStorage.getUser.avatar
+        }
+      });
 
-    const request = await axios.post('http://localhost:4200/api/room/join', {
-      code: connect.value,
-      player: {
-        id: userStorage.getUser.id,
-        username: userStorage.getUser.username,
-        avatar: userStorage.getUser.avatar
-      }
-    });
+      socket.emit('joinRoom', connect.value);
 
-    if (request.status === 200) {
       userStorage.setRoom(request.data);
       router.push('/room/' + connect.value);
+    } catch (error: any) {
+      if (error.response && error.response.status === 400) {
+        toast({
+          title: 'Комната уже заполнена',
+          variant: 'destructive'
+        });
+      } else {
+        toast({
+          title: 'Произошла ошибка при подключении к комнате',
+          variant: 'destructive',
+          action: h(
+            ToastAction,
+            {
+              altText: 'Try again'
+            },
+            {
+              default: () => 'Try again'
+            }
+          )
+        });
+      }
     }
   }
 };
@@ -219,9 +243,9 @@ watch([roomName, roundTime], updateProgress);
           <div class="w-[40%]" title="Максимальное количество игроков">
             <NumberField
               id="maxPlayers"
-              :min="3"
+              :min="2"
               :max="8"
-              :default-value="3"
+              :default-value="2"
               v-model="userCount"
             >
               <NumberFieldContent>

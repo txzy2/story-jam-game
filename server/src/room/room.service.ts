@@ -48,7 +48,7 @@ export class RoomService {
         theme: 'title',
         maxPlayers: dto.maxPlayers,
         roundTime: dto.roundTime,
-        isFinished: false,
+        status: 'Waiting',
         ownerId: dto.owner.id,
         code: generateRandomCode(),
         players: {
@@ -78,10 +78,21 @@ export class RoomService {
     const existRoom = await this.prisma.room.findUnique({
       where: {
         code: dto.code
+      },
+      include: {
+        players: true
       }
     });
 
     if (!existRoom) throw new BadRequestException('Room does not exist');
+
+    if (existRoom.maxPlayers === existRoom.players.length) {
+      throw new BadRequestException({
+        statusCode: 400,
+        message: 'Room is full',
+        error: 'Bad Request'
+      });
+    }
 
     const add = await this.prisma.room.update({
       where: {

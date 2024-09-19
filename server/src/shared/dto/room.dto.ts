@@ -18,7 +18,7 @@ export class RoomDTO {
 
   maxPlayers: number;
   roundTime: number;
-  isFinished: boolean;
+  status: string;
   owner: UserDTO;
   players?: UserDTO[];
   texts?: TextDTO[];
@@ -29,7 +29,7 @@ export class RoomDTO {
     theme,
     maxPlayers,
     roundTime,
-    isFinished = false,
+    status = 'Waiting',
     players = [],
     texts = []
   }: Partial<RoomDTO>) {
@@ -38,7 +38,7 @@ export class RoomDTO {
     this.theme = theme!;
     this.maxPlayers = maxPlayers!;
     this.roundTime = roundTime!;
-    this.isFinished = isFinished;
+    this.status = status;
     this.players = players.map(player => new UserDTO(player));
     this.texts = texts.map(text => new TextDTO(text));
   }

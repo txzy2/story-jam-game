@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import {ref, onMounted, inject, watch} from 'vue';
-import {Copy, Pen, Loader} from 'lucide-vue-next';
+import {useColorMode} from '@vueuse/core';
+import {Copy, Pen, Loader, Play} from 'lucide-vue-next';
 import {Socket} from 'socket.io-client';
 import {Motion} from '@oku-ui/motion';
+
+import {Game} from '@/components';
 
 import {useToast} from '@/components/ui/toast';
 import {useUserStore} from '@/stores/storage';
@@ -13,14 +16,14 @@ const userStore = useUserStore();
 const socket = inject('socket') as Socket;
 const {toast} = useToast();
 const sound = new Audio('/notification.wav');
+const colorMode = useColorMode();
 
 const roomInfo = ref<{room: any; users: any[]} | null>(null);
 const room = ref<any>(userStore.getRoom);
+const gameStarted = ref<boolean>(false);
 const previousPlayers = ref(
   userStore.room.players.map(player => player.username)
 );
-
-console.log(room.value);
 
 const connected = ref<number>(userStore.room.players.length);
 
@@ -42,7 +45,18 @@ onMounted(() => {
     roomInfo.value = data;
     userStore.setRoom(data.room);
 
+    console.log('Room state: ' + JSON.stringify(userStore.getRoom, null, 2));
+
     room.value = data.room;
+  });
+
+  socket.on('gameStarted', () => {
+    gameStarted.value = true;
+    toast({
+      title: 'Игра началась!'
+    });
+
+    gameStarted.value = true;
   });
 
   const roomCode = userStore.getRoom.code;
@@ -66,13 +80,15 @@ const updateConnectedCount = () => {
         title: `Новое подключение: ${addedPlayers.join(', ')}`
       });
 
-      sound.play().catch(err => {
-        console.error('Ошибка воспроизведения звука: ', err);
-      });
+      sound.play();
     }
 
     previousPlayers.value = newPlayerNicknames;
   }
+};
+
+const startGame = () => {
+  socket.emit('startGame', room.value.code);
 };
 
 watch(() => userStore.room.players.length, updateConnectedCount, {
@@ -82,7 +98,10 @@ watch(() => userStore.room.players.length, updateConnectedCount, {
 
 <template>
   <Motion :initial="{opacity: 0, scale: 0}" :animate="{opacity: 1, scale: 1}">
-    <div class="h-[80vh] flex flex-col items-center justify-center gap-2">
+    <div
+      class="h-[80vh] flex flex-col items-center justify-center gap-2"
+      v-if="!gameStarted"
+    >
       <div class="cursor-pointer flex items-center gap-1 font-bold rounded-sm">
         <h2 class="text-xl">{{ room.title }}</h2>
 
@@ -96,30 +115,35 @@ watch(() => userStore.room.players.length, updateConnectedCount, {
         </Badge>
       </div>
 
-      <div class="flex items-center gap-1">
-        <ul>
-          <li
-            v-for="player in room.players"
-            :key="player.userId"
-            class="flex items-center gap-2"
-          >
-            <img
-              :src="player.avatar"
-              :alt="'Player' + player.avatar"
-              class="w-8 h-8 rounded-full"
-            />
-            <div class="flex flex-col items-center leading-none">
-              <pre>{{ player.username }}</pre>
-              <p
-                v-if="player.userId === room.ownerId"
-                class="text-[12px] font-bold"
-              >
-                (Создатель)
-              </p>
-            </div>
-          </li>
-        </ul>
-      </div>
+      <Motion
+        :initial="{opacity: 0, scale: 0}"
+        :animate="{opacity: 1, scale: 1}"
+      >
+        <div class="flex items-center gap-1">
+          <ul>
+            <li
+              v-for="player in room.players"
+              :key="player.userId"
+              class="flex items-center gap-2"
+            >
+              <img
+                :src="player.avatar"
+                :alt="'Player' + player.avatar"
+                class="w-8 h-8 rounded-full"
+              />
+              <div class="flex flex-col items-center leading-none">
+                <pre>{{ player.username }}</pre>
+                <p
+                  v-if="player.userId === room.ownerId"
+                  class="text-[12px] font-bold"
+                >
+                  (Создатель)
+                </p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </Motion>
 
       <Badge
         v-if="connected !== room?.maxPlayers"
@@ -130,14 +154,40 @@ watch(() => userStore.room.players.length, updateConnectedCount, {
         <pre>{{ connected || 0 }}/{{ room?.maxPlayers || 0 }}</pre>
       </Badge>
 
-      <Button
-        v-else
-        class="w-[30%] flex items-center gap-1 ml-auto"
-        type="submit"
+      <Motion
+        :initial="{opacity: 0, scale: 0}"
+        :animate="{opacity: 1, scale: 1}"
       >
-        <Pen :size="20" />
-        <p>Играть</p>
-      </Button>
+        <Button
+          v-if="
+            connected === room.maxPlayers &&
+            userStore.getUser.id === room.ownerId
+          "
+          class="h-[30px] flex items-center gap-1"
+          :class="{
+            'anim_gradient--dark': colorMode === 'dark',
+            'anim_gradient--light': colorMode === 'light'
+          }"
+          type="button"
+          @click="startGame"
+        >
+          <Play :size="20" />
+          <p>Начать игру</p>
+        </Button>
+
+        <Badge
+          v-if="
+            connected === room.maxPlayers &&
+            userStore.getUser.id !== room.ownerId
+          "
+          class="flex items-center gap-1 px-2 rounded-sm"
+        >
+          <Loader :size="20" class="animate-spin" />
+          <p>Ожидание создателя</p>
+        </Badge>
+      </Motion>
     </div>
+
+    <Game v-if="gameStarted" />
   </Motion>
 </template>

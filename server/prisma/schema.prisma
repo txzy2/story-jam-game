@@ -26,7 +26,7 @@ model Room {
   theme      String
   maxPlayers Int
   roundTime  Int
-  isFinished Boolean  @default(false)
+  status     STATUS   @default(Waiting)
   code       String   @unique
   players    Player[]
   texts      Text[]
@@ -54,4 +54,10 @@ model Text {
   room   Room @relation(fields: [roomId], references: [id])
 
   @@map("texts")
+}
+
+enum STATUS {
+  Waiting
+  Started
+  Ended
 }
