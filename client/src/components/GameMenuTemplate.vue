@@ -3,6 +3,7 @@ import {ref, watch, computed, inject} from 'vue';
 import confetti from 'canvas-confetti';
 import {useColorMode} from '@vueuse/core';
 import {v4 as uuidv4} from 'uuid';
+import Cookies from 'js-cookie';
 
 import {
   SquarePlus,
@@ -60,7 +61,7 @@ const userCount = ref<number>(3);
 const roomName = ref<string>('');
 const roundTime = ref<string>('');
 
-const maxLength: number = 15;
+const maxLength: number = 25;
 const remainingCharacters = computed(() => roomName.value.length);
 
 const router = useRouter();
@@ -105,6 +106,8 @@ const submitForm = async (e: any) => {
     socket.emit('joinRoom', request.data.code);
 
     userStorage.setRoom(request.data);
+    Cookies.set('room', JSON.stringify(request.data), {expires: 1 / 144});
+
     router.push(`/room/${request.data.code}`);
   }
 };
@@ -208,16 +211,16 @@ watch([roomName, roundTime], updateProgress);
         @submit="submitForm"
       >
         <div>
-          <Label class="mb-1" for="roomName">Название комнаты</Label>
+          <Label class="mb-1" for="roomName">Название истории</Label>
           <Input
             id="roomName"
-            placeholder="Комната"
+            placeholder="О великом драконе"
             v-model="roomName"
             :maxLength="maxLength"
           />
 
           <p class="text-[13px] mt-auto text-right">
-            {{ remainingCharacters }}/15
+            {{ remainingCharacters }}/{{ maxLength }}
           </p>
         </div>
 

@@ -4,17 +4,17 @@ import {
   WebSocketGateway,
   WebSocketServer
 } from '@nestjs/websockets';
-import {Server} from 'socket.io';
-import {OnModuleInit} from '@nestjs/common';
-import {PrismaService} from 'src/prisma.service';
+import { Server } from 'socket.io';
+import { BadRequestException, OnModuleInit } from '@nestjs/common';
+import { PrismaService } from 'src/prisma.service';
 
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:3000']
+    origin: ['http://localhost:3300']
   }
 })
 export class MyGateway implements OnModuleInit {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   @WebSocketServer()
   server: Server;
@@ -42,7 +42,6 @@ export class MyGateway implements OnModuleInit {
         });
       });
 
-      // Обработка запроса на получение пользователей в комнате
       socket.on('getRoomUsers', (code: string) => {
         const users = Array.from(this.roomUsers.get(code) || []);
         socket.emit('updateUsers', users);
@@ -50,8 +49,8 @@ export class MyGateway implements OnModuleInit {
 
       socket.on('startGame', async (roomId: string) => {
         const room = await this.prisma.room.findUnique({
-          where: {code: roomId},
-          include: {players: true}
+          where: { code: roomId },
+          include: { players: true }
         });
 
         if (!room) {
@@ -59,14 +58,43 @@ export class MyGateway implements OnModuleInit {
           return;
         }
 
-        // Обновляем состояние игры в базе данных
         await this.prisma.room.update({
-          where: {code: roomId},
-          data: {status: 'Started'}
+          where: { code: roomId },
+          data: { status: 'Started' }
         });
 
-        // Уведомляем всех в комнате о начале игры
-        this.server.to(roomId).emit('gameStarted', {roomId});
+        this.server.to(roomId).emit('gameStarted', { roomId });
+      });
+
+      socket.on('exitRoom', async (code: string, userID: string) => {
+        const room = await this.prisma.room.findUnique({
+          where: { code: code },
+          include: { players: true }
+        });
+
+        if (!room) {
+          console.error(`Room with id ${code} not found`);
+          throw new BadRequestException('Комната не найдена');
+        }
+
+        const player = room.players.find(player => player.userId === userID);
+
+        if (!player) {
+          throw new BadRequestException('Пользователь не в комнате');
+        }
+
+        console.log(code, '\n', userID);
+
+        await this.prisma.player.delete({
+          where: { id: player.id }
+        });
+
+        const updatedRoom = await this.prisma.room.findUnique({
+          where: { code: code },
+          include: { players: true }
+        });
+
+        socket.to(room.code).emit('playerLeft', { userID, updatedRoom });
       });
     });
   }
@@ -75,8 +103,8 @@ export class MyGateway implements OnModuleInit {
     const users = Array.from(this.roomUsers.get(roomId) || []);
 
     const room = await this.prisma.room.findUnique({
-      where: {code: roomId},
-      include: {players: true}
+      where: { code: roomId },
+      include: { players: true }
     });
 
     if (!room) {

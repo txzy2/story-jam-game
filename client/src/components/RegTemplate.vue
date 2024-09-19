@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import {ref, computed} from 'vue';
+import { ref, computed } from 'vue';
 
 import * as z from 'zod';
-import {toTypedSchema} from '@vee-validate/zod';
+import { toTypedSchema } from '@vee-validate/zod';
+import Cookies from 'js-cookie';
 
-import {useUserStore} from '@/stores/storage';
+import { useUserStore } from '@/stores/storage';
+import { addUser } from '@/shared/api/user';
 
-import {Button} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -34,9 +36,9 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import {Input} from '@/components/ui/input';
-import {path} from '@/utils/imgs';
-import {useColorMode} from '@vueuse/core';
+import { Input } from '@/components/ui/input';
+import { path } from '@/utils/imgs';
+import { useColorMode } from '@vueuse/core';
 import axios from 'axios';
 
 const userStorage = useUserStore();
@@ -63,21 +65,21 @@ async function submitForm(event: Event) {
     const form = event.target as HTMLFormElement;
     const formData = new FormData(form);
 
-    const values: {[key: string]: string} = {};
+    const values: { [key: string]: string } = {};
     formData.forEach((value, key) => {
       values[key] = value.toString();
     });
 
-    console.log(values, selectedValue.value);
+    try {
+      const user = await addUser(values.username, selectedValue.value);
 
-    const user = await axios.post(`http://localhost:4200/api/user/add`, {
-      username: values.username,
-      avatar: selectedValue.value
-    });
-
-    if (user.status === 200) {
-      console.log(user.data);
-      userStorage.setUser(user.data);
+      // NOTE: Мб сделать широфр куков
+      if (user) {
+        userStorage.setUser(user);
+        Cookies.set('user', JSON.stringify(user), { expires: 7 });
+      }
+    } catch (error) {
+      console.error('Error handling user addition:', error);
     }
   }
 }
@@ -87,28 +89,20 @@ async function submitForm(event: Event) {
   <Form v-if="isDialogOpen" :validation-schema="formSchema">
     <Dialog>
       <DialogTrigger as-child>
-        <Button
-          :class="{
-            'anim_gradient--dark': colorMode === 'dark',
-            'anim_gradient--light': colorMode === 'light'
-          }"
-        >
+        <Button :class="{
+          'anim_gradient--dark': colorMode === 'dark',
+          'anim_gradient--light': colorMode === 'light'
+        }">
           Заполнить профиль
         </Button>
       </DialogTrigger>
       <DialogContent class="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Редактирование профиля</DialogTitle>
-          <DialogDescription class="text-[13px] me-auto"
-            >Перед стартом заполни свой профиль</DialogDescription
-          >
+          <DialogDescription class="text-[13px] me-auto">Перед стартом заполни свой профиль</DialogDescription>
         </DialogHeader>
 
-        <form
-          class="flex gap-2 items-center"
-          @submit="submitForm"
-          id="dialogForm"
-        >
+        <form class="flex gap-2 items-center" @submit="submitForm" id="dialogForm">
           <FormItem class="flex items-center w-[30%]">
             <Select variant="ghost" v-model="selectedValue">
               <SelectTrigger class="h-[100px]">
@@ -132,16 +126,11 @@ async function submitForm(event: Event) {
               </SelectContent>
             </Select>
           </FormItem>
-          <FormField v-slot="{componentField}" name="username" class="flex-1">
+          <FormField v-slot="{ componentField }" name="username" class="flex-1">
             <FormItem class="flex gap-1">
               <FormControl>
-                <Input
-                  type="text"
-                  placeholder="Никнейм"
-                  v-bind="componentField"
-                  v-model="username"
-                  :maxLength="maxLength"
-                />
+                <Input type="text" placeholder="Никнейм" v-bind="componentField" v-model="username"
+                  :maxLength="maxLength" />
 
                 <p class="text-[13px]">{{ remainingCharacters }}/15</p>
               </FormControl>

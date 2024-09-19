@@ -1,17 +1,38 @@
 <script setup lang="ts">
-import {ref} from 'vue';
+import {ref, onMounted} from 'vue';
 import {RouterLink} from 'vue-router';
 import {useColorMode} from '@vueuse/core';
 import {Motion} from '@oku-ui/motion';
+import Cookies from 'js-cookie';
+import {useRouter} from 'vue-router';
+
+import {Reg, GameMenu} from '@/components/';
 
 import {useUserStore} from '@/stores/storage';
 import {Typer} from '@/components/ui/typer/';
-import {Reg, GameMenu} from '@/components/';
+import {Button} from '@/components/ui/button';
 
 const userStore = useUserStore();
 const colorMode = useColorMode();
+const router = useRouter();
 
 const showSecondText = ref<boolean>(false);
+const gameLoaded = ref<boolean>(false);
+const room = ref<any>({});
+
+onMounted(async () => {
+  const savedRoom = Cookies.get('room');
+  const parsedRoom = savedRoom ? JSON.parse(savedRoom) : null;
+
+  console.log(parsedRoom);
+
+  if (parsedRoom) {
+    userStore.setRoom(parsedRoom);
+    console.log(userStore.getRoom);
+    room.value = userStore.getRoom;
+    gameLoaded.value = true;
+  }
+});
 </script>
 
 <template>
@@ -43,7 +64,17 @@ const showSecondText = ref<boolean>(false);
 
       <Reg v-if="!userStore.getUser.username" />
 
-      <GameMenu v-else class="flex flex-col items-center gap-1" />
+      <GameMenu
+        v-else-if="!gameLoaded"
+        class="flex flex-col items-center gap-1"
+      />
+
+      <Button
+        v-else-if="gameLoaded && room && room.code"
+        @click="() => router.push('/room/' + room.code)"
+      >
+        Прошлая игра
+      </Button>
     </div>
   </div>
 </template>
