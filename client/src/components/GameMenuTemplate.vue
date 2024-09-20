@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import {ref, watch, computed, inject} from 'vue';
-import confetti from 'canvas-confetti';
+import {useRouter} from 'vue-router';
 import {useColorMode} from '@vueuse/core';
 import {v4 as uuidv4} from 'uuid';
+import {Socket} from 'socket.io-client';
+import {Play} from 'lucide-vue-next';
+
 import Cookies from 'js-cookie';
+import axios from 'axios';
+import confetti from 'canvas-confetti';
 
 import {
   SquarePlus,
@@ -45,9 +50,6 @@ import {Label} from '@/components/ui/label';
 import {ToastAction} from '@/components/ui/toast';
 
 import {useUserStore} from '@/stores/storage';
-import {useRouter} from 'vue-router';
-import axios from 'axios';
-import {Socket} from 'socket.io-client';
 import {useToast} from './ui/toast';
 
 const userStorage = useUserStore();
@@ -106,7 +108,7 @@ const submitForm = async (e: any) => {
     socket.emit('joinRoom', request.data.code);
 
     userStorage.setRoom(request.data);
-    Cookies.set('room', JSON.stringify(request.data), {expires: 1 / 144});
+    Cookies.set('room', JSON.stringify(request.data), {expires: 10 / 1440});
 
     router.push(`/room/${request.data.code}`);
   }
@@ -170,13 +172,14 @@ watch([roomName, roundTime], updateProgress);
   <Dialog>
     <DialogTrigger as-child>
       <Button
+        class="flex items-center gap-1"
         :class="{
           'anim_gradient--dark': colorMode === 'dark',
           'anim_gradient--light': colorMode === 'light'
         }"
       >
-        Начать играть</Button
-      >
+        <Play :size="20" /> Играть
+      </Button>
     </DialogTrigger>
     <DialogContent class="sm:max-w-[425px]">
       <DialogHeader>

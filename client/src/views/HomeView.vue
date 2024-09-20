@@ -5,32 +5,59 @@ import {useColorMode} from '@vueuse/core';
 import {Motion} from '@oku-ui/motion';
 import Cookies from 'js-cookie';
 import {useRouter} from 'vue-router';
+import {Undo2} from 'lucide-vue-next';
 
 import {Reg, GameMenu} from '@/components/';
 
 import {useUserStore} from '@/stores/storage';
 import {Typer} from '@/components/ui/typer/';
 import {Button} from '@/components/ui/button';
+import {useToast} from '@/components/ui/toast';
 
 const userStore = useUserStore();
 const colorMode = useColorMode();
 const router = useRouter();
+const {toast} = useToast();
 
 const showSecondText = ref<boolean>(false);
 const gameLoaded = ref<boolean>(false);
 const room = ref<any>({});
+const roomExpired = ref<boolean>(false);
+
+const isVisited = ref<boolean>(Cookies.get('isVisited') === 'false');
 
 onMounted(async () => {
   const savedRoom = Cookies.get('room');
   const parsedRoom = savedRoom ? JSON.parse(savedRoom) : null;
 
+  if (!savedRoom) {
+    gameLoaded.value = false;
+  }
+
+  isVisited.value = Cookies.get('isVisited') === 'true';
+
+  if (!isVisited.value) {
+    Cookies.set('isVisited', 'true', {expires: 1});
+  }
+
   console.log(parsedRoom);
 
   if (parsedRoom) {
-    userStore.setRoom(parsedRoom);
-    console.log(userStore.getRoom);
-    room.value = userStore.getRoom;
-    gameLoaded.value = true;
+    const roomExpirationDate = new Date(Cookies.get('room'));
+
+    if (roomExpirationDate < new Date() && savedRoom) {
+      roomExpired.value = true;
+
+      toast({
+        title: 'Эта комната истекла'
+      });
+
+      Cookies.remove('room');
+    } else {
+      userStore.setRoom(parsedRoom);
+      room.value = userStore.getRoom;
+      gameLoaded.value = true;
+    }
   }
 });
 </script>
@@ -38,7 +65,7 @@ onMounted(async () => {
 <template>
   <div class="h-[80vh] flex items-center justify-center">
     <div class="flex flex-col items-center gap-4">
-      <div class="w-full text-center text-2xl font-medium">
+      <div v-if="!isVisited" class="w-full text-center text-2xl font-medium">
         <Typer
           :strings="['Добро пожаловать в StoryJam']"
           :typeSpeed="50"
@@ -62,19 +89,28 @@ onMounted(async () => {
         </Motion>
       </div>
 
+      <div
+        v-else
+        class="w-full flex flex-col items-center text-center text-2xl font-medium"
+      >
+        <div class="">Добро пожаловать в StoryJam</div>
+
+        <div class="">Создай уникальную историю вместе с друзьями!</div>
+      </div>
+
       <Reg v-if="!userStore.getUser.username" />
 
-      <GameMenu
-        v-else-if="!gameLoaded"
-        class="flex flex-col items-center gap-1"
-      />
+      <div class="flex items-center gap-1" v-else>
+        <GameMenu class="flex flex-col items-center gap-1" />
 
-      <Button
-        v-else-if="gameLoaded && room && room.code"
-        @click="() => router.push('/room/' + room.code)"
-      >
-        Прошлая игра
-      </Button>
+        <Button
+          v-if="!roomExpired && gameLoaded"
+          class="flex items-center gap-1"
+          @click="() => router.push('/room/' + room.code)"
+        >
+          <Undo2 :size="20" /> Прошлая игра
+        </Button>
+      </div>
     </div>
   </div>
 </template>
